@@ -10,6 +10,8 @@ services:
         environment:
             XDEBUG_CONFIG: client_host=${XDEBUG_REMOTE_HOST} client_port=${XDEBUG_REMOTE_PORT}
             PHP_IDE_CONFIG: serverName=${IDE_SERVER_NAME}
+        ports:
+            - "8080:8080"
         networks:
             - phplvl2
         tty: true
