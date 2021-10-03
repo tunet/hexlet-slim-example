@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<ruleset name="The PHP project coding standard">
+    <rule ref="PSR12"/>
+    <rule ref="Generic.Formatting.SpaceAfterCast.NoSpace"/>
+    <rule ref="Squiz.Arrays.ArrayDeclaration">
+        <exclude name="Squiz.Arrays.ArrayDeclaration.KeyNotAligned"/>
+        <exclude name="Squiz.Arrays.ArrayDeclaration.ValueNotAligned"/>
+        <exclude name="Squiz.Arrays.ArrayDeclaration.CloseBraceNotAligned"/>
+        <exclude name="Squiz.Arrays.ArrayDeclaration.MultiLineNotAllowed"/>
+        <exclude name="Squiz.Arrays.ArrayDeclaration.SingleLineNotAllowed"/>
+    </rule>
+</ruleset>
