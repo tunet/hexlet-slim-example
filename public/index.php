@@ -6,6 +6,8 @@ use Slim\Views\PhpRenderer;
 
 require __DIR__ . '/../vendor/autoload.php';
 
+$users = ['mike', 'mishel', 'adel', 'keks', 'kamila'];
+
 $container = new Container();
 $container->set('renderer', fn() => new PhpRenderer(__DIR__ . '/../templates'));
 $app = AppFactory::createFromContainer($container);
@@ -16,8 +18,14 @@ $app->get('/', function ($request, $response) {
     return $response;
 });
 
-$app->get('/users', function ($request, $response) {
-    return $response->write('GET /users');
+$app->get('/users', function ($request, $response) use ($users) {
+    $search = $request->getQueryParam('term');
+    $result = collect($users)->filter(
+        fn($user) => empty($search) ?: s($user)->ignoreCase()->startsWith($search)
+    );
+    $params = ['users' => $result, 'search' => $search];
+
+    return $this->get('renderer')->render($response, 'users/index.phtml', $params);
 });
 
 $app->get('/users/{id}', function ($request, $response, $args) {
