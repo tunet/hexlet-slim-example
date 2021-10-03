@@ -14,16 +14,18 @@ $app = AppFactory::createFromContainer($container);
 $app->addErrorMiddleware(true, true, true);
 
 $app->get('/', function ($request, $response) {
-    $response->getBody()->write('Welcome to Slim!');
-    return $response;
+    return $response->write('Welcome to Slim!');
 });
 
 $app->get('/users', function ($request, $response) use ($users) {
-    $search = $request->getQueryParam('term');
+    $term = $request->getQueryParam('term');
     $result = collect($users)->filter(
-        fn($user) => empty($search) ?: s($user)->ignoreCase()->startsWith($search)
+        fn($user) => empty($term) ?: s($user)->ignoreCase()->startsWith($term)
     );
-    $params = ['users' => $result, 'search' => $search];
+    $params = [
+        'users' => $result,
+        'term'  => $term,
+    ];
 
     return $this->get('renderer')->render($response, 'users/index.phtml', $params);
 });
@@ -33,6 +35,7 @@ $app->get('/users/{id}', function ($request, $response, $args) {
         'id'       => $args['id'],
         'nickname' => "user-{$args['id']}",
     ];
+
     return $this->get('renderer')->render($response, 'users/show.phtml', $params);
 });
 

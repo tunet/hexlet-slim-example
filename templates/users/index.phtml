@@ -1,6 +1,6 @@
 <div>
     <form action="/users" method="GET">
-        <input type="text" name="term" value="<?= htmlspecialchars($search) ?>">
+        <input type="text" name="term" value="<?= htmlspecialchars($term) ?>">
     </form>
     <?php foreach ($users as $user) : ?>
         <p><?= $user ?></p>
