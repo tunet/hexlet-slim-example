@@ -3,7 +3,10 @@
 use App\Validator;
 use DI\Container;
 use Slim\Factory\AppFactory;
+use Slim\Flash\Messages;
 use Slim\Views\PhpRenderer;
+
+use function Symfony\Component\String\s;
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -32,14 +35,19 @@ function addUser(array $user): void
     saveUsers($users);
 }
 
+session_start();
+
 $container = new Container();
 $container->set('renderer', fn() => new PhpRenderer(__DIR__ . '/../templates'));
+$container->set('flash', fn() => new Messages());
 $app = AppFactory::createFromContainer($container);
 $app->addErrorMiddleware(true, true, true);
 
+$router = $app->getRouteCollector()->getRouteParser();
+
 $app->get('/', function ($request, $response) {
     return $response->write('Welcome to Slim!');
-});
+})->setName('home');
 
 $app->get('/users', function ($request, $response) {
     $users = getUsers();
@@ -47,13 +55,16 @@ $app->get('/users', function ($request, $response) {
     $result = collect($users)->filter(
         fn($user) => empty($term) ?: s($user['nickname'])->ignoreCase()->startsWith($term)
     );
+    $messages = $this->get('flash')->getMessages();
+
     $params = [
-        'users' => $result,
-        'term'  => $term,
+        'users'    => $result,
+        'term'     => $term,
+        'messages' => $messages,
     ];
 
     return $this->get('renderer')->render($response, 'users/index.phtml', $params);
-});
+})->setName('users');
 
 $app->get('/users/new', function ($request, $response) {
     $params = [
@@ -65,7 +76,7 @@ $app->get('/users/new', function ($request, $response) {
     ];
 
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
-});
+})->setName('user_new');
 
 $app->get('/users/{id}', function ($request, $response, $args) {
     $users = getUsers();
@@ -80,9 +91,9 @@ $app->get('/users/{id}', function ($request, $response, $args) {
     ];
 
     return $this->get('renderer')->render($response, 'users/show.phtml', $params);
-});
+})->setName('user');
 
-$app->post('/users', function ($request, $response) {
+$app->post('/users', function ($request, $response) use ($router) {
     $user = $request->getParsedBodyParam('user');
     $validator = new Validator();
     $errors = $validator->validate($user);
@@ -90,7 +101,9 @@ $app->post('/users', function ($request, $response) {
     if (count($errors) === 0) {
         addUser($user);
 
-        return $response->withRedirect('/users', 302);
+        $this->get('flash')->addMessage('success', 'Пользователь успешно добавлен');
+
+        return $response->withRedirect($router->urlFor('users'), 302);
     }
 
     $params = [
@@ -99,6 +112,6 @@ $app->post('/users', function ($request, $response) {
     ];
 
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
-});
+})->setName('user_add');
 
 $app->run();

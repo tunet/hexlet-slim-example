@@ -1,4 +1,10 @@
 <div>
+    <?php if (!empty($messages['success'])) : ?>
+        <?php foreach ($messages['success'] as $message) : ?>
+            <p style="color: green;"><?= $message ?></p>
+        <?php endforeach; ?>
+    <?php endif ?>
+
     <form action="/users" method="GET">
         <input type="text" name="term" value="<?= htmlspecialchars($term) ?>">
     </form>
