@@ -3,6 +3,10 @@
         <input type="text" name="term" value="<?= htmlspecialchars($term) ?>">
     </form>
     <?php foreach ($users as $user) : ?>
-        <p><?= $user ?></p>
+        <p>
+            <a href="/users/<?= $user['id'] ?>">
+                <?= htmlspecialchars($user['nickname']) ?>
+            </a>
+        </p>
     <?php endforeach ?>
 </div>

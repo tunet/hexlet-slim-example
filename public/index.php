@@ -1,12 +1,36 @@
 <?php
 
+use App\Validator;
 use DI\Container;
 use Slim\Factory\AppFactory;
 use Slim\Views\PhpRenderer;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-$users = ['mike', 'mishel', 'adel', 'keks', 'kamila'];
+const USER_STORAGE_PATH = __DIR__ . '/../storage/users.json';
+
+function getUsers(): array
+{
+    if (!file_exists(USER_STORAGE_PATH)) {
+        return [];
+    }
+
+    return json_decode(file_get_contents(USER_STORAGE_PATH), true);
+}
+
+function saveUsers(array $users): void
+{
+    $jsonUsers = json_encode($users, JSON_PRETTY_PRINT);
+    file_put_contents(USER_STORAGE_PATH, $jsonUsers);
+}
+
+function addUser(array $user): void
+{
+    $users = getUsers();
+    $maxId = collect($users)->max('id');
+    $users[] = array_merge($user, ['id' => $maxId + 1]);
+    saveUsers($users);
+}
 
 $container = new Container();
 $container->set('renderer', fn() => new PhpRenderer(__DIR__ . '/../templates'));
@@ -17,10 +41,11 @@ $app->get('/', function ($request, $response) {
     return $response->write('Welcome to Slim!');
 });
 
-$app->get('/users', function ($request, $response) use ($users) {
+$app->get('/users', function ($request, $response) {
+    $users = getUsers();
     $term = $request->getQueryParam('term');
     $result = collect($users)->filter(
-        fn($user) => empty($term) ?: s($user)->ignoreCase()->startsWith($term)
+        fn($user) => empty($term) ?: s($user['nickname'])->ignoreCase()->startsWith($term)
     );
     $params = [
         'users' => $result,
@@ -30,21 +55,50 @@ $app->get('/users', function ($request, $response) use ($users) {
     return $this->get('renderer')->render($response, 'users/index.phtml', $params);
 });
 
-$app->get('/users/{id}', function ($request, $response, $args) {
+$app->get('/users/new', function ($request, $response) {
     $params = [
-        'id'       => $args['id'],
-        'nickname' => "user-{$args['id']}",
+        'user'   => [
+            'email'    => '',
+            'nickname' => '',
+        ],
+        'errors' => [],
+    ];
+
+    return $this->get('renderer')->render($response, 'users/new.phtml', $params);
+});
+
+$app->get('/users/{id}', function ($request, $response, $args) {
+    $users = getUsers();
+    $user = collect($users)->firstWhere('id', $args['id']);
+
+    if (!$user) {
+        return $response->withStatus(404)->write('404 Not Found');
+    }
+
+    $params = [
+        'user' => $user,
     ];
 
     return $this->get('renderer')->render($response, 'users/show.phtml', $params);
 });
 
 $app->post('/users', function ($request, $response) {
-    return $response->withStatus(302);
-});
+    $user = $request->getParsedBodyParam('user');
+    $validator = new Validator();
+    $errors = $validator->validate($user);
 
-$app->get('/courses/{id}', function ($request, $response, array $args) {
-    return $response->write("Course id: {$args['id']}");
+    if (count($errors) === 0) {
+        addUser($user);
+
+        return $response->withRedirect('/users', 302);
+    }
+
+    $params = [
+        'user'   => $user,
+        'errors' => $errors,
+    ];
+
+    return $this->get('renderer')->render($response, 'users/new.phtml', $params);
 });
 
 $app->run();
