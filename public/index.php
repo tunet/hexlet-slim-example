@@ -4,6 +4,7 @@ use App\Validator;
 use DI\Container;
 use Slim\Factory\AppFactory;
 use Slim\Flash\Messages;
+use Slim\Middleware\MethodOverrideMiddleware;
 use Slim\Views\PhpRenderer;
 
 use function Symfony\Component\String\s;
@@ -35,6 +36,14 @@ function addUser(array $user): void
     saveUsers($users);
 }
 
+function saveUser(array $user): void
+{
+    $users = getUsers();
+    $index = collect($users)->search(fn($item) => $item['id'] === $user['id']);
+    $users[$index] = $user;
+    saveUsers($users);
+}
+
 session_start();
 
 $container = new Container();
@@ -42,6 +51,7 @@ $container->set('renderer', fn() => new PhpRenderer(__DIR__ . '/../templates'));
 $container->set('flash', fn() => new Messages());
 $app = AppFactory::createFromContainer($container);
 $app->addErrorMiddleware(true, true, true);
+$app->add(MethodOverrideMiddleware::class);
 
 $router = $app->getRouteCollector()->getRouteParser();
 
@@ -76,7 +86,7 @@ $app->get('/users/new', function ($request, $response) {
     ];
 
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
-})->setName('user_new');
+})->setName('newUser');
 
 $app->get('/users/{id}', function ($request, $response, $args) {
     $users = getUsers();
@@ -112,6 +122,52 @@ $app->post('/users', function ($request, $response) use ($router) {
     ];
 
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
-})->setName('user_add');
+})->setName('addUser');
+
+$app->get('/users/{id}/edit', function ($request, $response, $args) {
+    $users = getUsers();
+    $user = collect($users)->firstWhere('id', $args['id']);
+
+    if (!$user) {
+        return $response->withStatus(404)->write('404 Not Found');
+    }
+
+    $params = [
+        'user' => $user,
+    ];
+
+    return $this->get('renderer')->render($response, 'users/edit.phtml', $params);
+})->setName('editUser');
+
+$app->patch('/users/{id}', function ($request, $response, $args) use ($router) {
+    $users = getUsers();
+    $user = collect($users)->firstWhere('id', $args['id']);
+
+    if (!$user) {
+        return $response->withStatus(404)->write('404 Not Found');
+    }
+
+    $data = $request->getParsedBodyParam('user');
+    $validator = new Validator();
+    $errors = $validator->validate($user);
+
+    if (count($errors) === 0) {
+        $user['email'] = $data['email'];
+        $user['nickname'] = $data['nickname'];
+
+        saveUser($user);
+
+        $this->get('flash')->addMessage('success', 'Пользователь успешно обновлён');
+
+        return $response->withRedirect($router->urlFor('editUser', ['id' => $user['id']]));
+    }
+
+    $params = [
+        'user'   => $user,
+        'errors' => $errors,
+    ];
+
+    return $this->get('renderer')->render($response, 'users/edit.phtml', $params);
+})->setName('updateUser');
 
 $app->run();
