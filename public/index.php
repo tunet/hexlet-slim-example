@@ -1,5 +1,6 @@
 <?php
 
+use App\UserRepository;
 use App\Validator;
 use DI\Container;
 use Slim\Factory\AppFactory;
@@ -11,39 +12,6 @@ use function Symfony\Component\String\s;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-const USER_STORAGE_PATH = __DIR__ . '/../storage/users.json';
-
-function getUsers(): array
-{
-    if (!file_exists(USER_STORAGE_PATH)) {
-        return [];
-    }
-
-    return json_decode(file_get_contents(USER_STORAGE_PATH), true);
-}
-
-function saveUsers(array $users): void
-{
-    $jsonUsers = json_encode($users, JSON_PRETTY_PRINT);
-    file_put_contents(USER_STORAGE_PATH, $jsonUsers);
-}
-
-function addUser(array $user): void
-{
-    $users = getUsers();
-    $maxId = collect($users)->max('id');
-    $users[] = array_merge($user, ['id' => $maxId + 1]);
-    saveUsers($users);
-}
-
-function saveUser(array $user): void
-{
-    $users = getUsers();
-    $index = collect($users)->search(fn($item) => $item['id'] === $user['id']);
-    $users[$index] = $user;
-    saveUsers($users);
-}
-
 session_start();
 
 $container = new Container();
@@ -54,13 +22,14 @@ $app->addErrorMiddleware(true, true, true);
 $app->add(MethodOverrideMiddleware::class);
 
 $router = $app->getRouteCollector()->getRouteParser();
+$repo = new UserRepository();
 
 $app->get('/', function ($request, $response) {
     return $response->write('Welcome to Slim!');
 })->setName('home');
 
-$app->get('/users', function ($request, $response) {
-    $users = getUsers();
+$app->get('/users', function ($request, $response) use ($repo) {
+    $users = $repo->all();
     $term = $request->getQueryParam('term');
     $result = collect($users)->filter(
         fn($user) => empty($term) ?: s($user['nickname'])->ignoreCase()->startsWith($term)
@@ -88,9 +57,8 @@ $app->get('/users/new', function ($request, $response) {
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
 })->setName('newUser');
 
-$app->get('/users/{id}', function ($request, $response, $args) {
-    $users = getUsers();
-    $user = collect($users)->firstWhere('id', $args['id']);
+$app->get('/users/{id}', function ($request, $response, $args) use ($repo) {
+    $user = $repo->find($args['id']);
 
     if (!$user) {
         return $response->withStatus(404)->write('404 Not Found');
@@ -103,13 +71,13 @@ $app->get('/users/{id}', function ($request, $response, $args) {
     return $this->get('renderer')->render($response, 'users/show.phtml', $params);
 })->setName('user');
 
-$app->post('/users', function ($request, $response) use ($router) {
+$app->post('/users', function ($request, $response) use ($router, $repo) {
     $user = $request->getParsedBodyParam('user');
     $validator = new Validator();
     $errors = $validator->validate($user);
 
     if (count($errors) === 0) {
-        addUser($user);
+        $repo->save($user);
 
         $this->get('flash')->addMessage('success', 'Пользователь успешно добавлен');
 
@@ -124,9 +92,8 @@ $app->post('/users', function ($request, $response) use ($router) {
     return $this->get('renderer')->render($response, 'users/new.phtml', $params);
 })->setName('addUser');
 
-$app->get('/users/{id}/edit', function ($request, $response, $args) {
-    $users = getUsers();
-    $user = collect($users)->firstWhere('id', $args['id']);
+$app->get('/users/{id}/edit', function ($request, $response, $args) use ($repo) {
+    $user = $repo->find($args['id']);
 
     if (!$user) {
         return $response->withStatus(404)->write('404 Not Found');
@@ -139,9 +106,8 @@ $app->get('/users/{id}/edit', function ($request, $response, $args) {
     return $this->get('renderer')->render($response, 'users/edit.phtml', $params);
 })->setName('editUser');
 
-$app->patch('/users/{id}', function ($request, $response, $args) use ($router) {
-    $users = getUsers();
-    $user = collect($users)->firstWhere('id', $args['id']);
+$app->patch('/users/{id}', function ($request, $response, $args) use ($router, $repo) {
+    $user = $repo->find($args['id']);
 
     if (!$user) {
         return $response->withStatus(404)->write('404 Not Found');
@@ -155,7 +121,7 @@ $app->patch('/users/{id}', function ($request, $response, $args) use ($router) {
         $user['email'] = $data['email'];
         $user['nickname'] = $data['nickname'];
 
-        saveUser($user);
+        $repo->save($user);
 
         $this->get('flash')->addMessage('success', 'Пользователь успешно обновлён');
 
