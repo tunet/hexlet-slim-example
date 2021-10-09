@@ -1,4 +1,6 @@
 <h1>Hello, <?= htmlspecialchars($user['nickname']) ?></h1>
-<p>
-    <a href="/users/<?= htmlspecialchars($user['id']) ?>/edit">Edit</a>
-</p>
+<a href="/users/<?= htmlspecialchars($user['id']) ?>/edit">Edit</a>
+<form action="/users/<?= htmlspecialchars($user['id']) ?>" method="post">
+    <input type="hidden" name="_METHOD" value="DELETE">
+    <input type="submit" value="Delete">
+</form>
