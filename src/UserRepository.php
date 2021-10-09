@@ -8,6 +8,19 @@ class UserRepository
 {
     private const USER_STORAGE_PATH = __DIR__ . '/../storage/users.json';
 
+    public function __construct()
+    {
+        if (!file_exists(static::USER_STORAGE_PATH)) {
+            $dirPath = dirname(static::USER_STORAGE_PATH);
+
+            if (!is_dir($dirPath)) {
+                mkdir($dirPath, 0777, true);
+            }
+
+            file_put_contents(static::USER_STORAGE_PATH, json_encode([]));
+        }
+    }
+
     public function find($id): ?array
     {
         $users = $this->all();
@@ -17,10 +30,6 @@ class UserRepository
 
     public function all(): array
     {
-        if (!file_exists(static::USER_STORAGE_PATH)) {
-            return [];
-        }
-
         return json_decode(file_get_contents(static::USER_STORAGE_PATH), true);
     }
 
