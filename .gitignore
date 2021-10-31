@@ -4,3 +4,5 @@
 /storage/
 /.env
 /.phpunit.result.cache
+/nginx.access.log
+/nginx.error.log
